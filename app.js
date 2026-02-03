@@ -1,17 +1,20 @@
 // Claire Delish - Real-time AI Cooking Companion
-// Using Hume EVI for voice + GPT-4V for vision
+// Direct WebSocket implementation for Hume EVI
 
 const CONFIG = {
-    HUME_API_KEY: '',
-    HUME_CONFIG_ID: '5e4ab7a7-c3e8-4539-b2a3-c3cdfe69ecf4', // Claire Delish EVI config
-    OPENAI_API_KEY: ''
+    // Pre-configured keys (for this deployment)
+    HUME_API_KEY: 'Qpo16RO78hsfKE37KnJM7mlXBp1pnGaXVUQ0x36nNIbmgjUp',
+    HUME_CONFIG_ID: '5e4ab7a7-c3e8-4539-b2a3-c3cdfe69ecf4',
+    OPENAI_API_KEY: '' // Optional - user can add for vision
 };
 
 let socket = null;
-let recorder = null;
-let player = null;
-let cameraStream = null;
+let mediaRecorder = null;
+let audioContext = null;
+let audioQueue = [];
+let isPlaying = false;
 let isMuted = false;
+let cameraStream = null;
 let currentImageData = null;
 
 // DOM elements
@@ -25,38 +28,17 @@ const messagesEl = document.getElementById('messages');
 const cameraPreview = document.getElementById('cameraPreview');
 const uploadPreview = document.getElementById('uploadPreview');
 
-// Initialize on load
-window.onload = async () => {
+// Initialize
+window.onload = () => {
+    // Check for OpenAI key in URL or localStorage (optional for vision)
     const params = new URLSearchParams(window.location.search);
-    CONFIG.HUME_API_KEY = params.get('key') || localStorage.getItem('hume_api_key') || '';
     CONFIG.OPENAI_API_KEY = params.get('openai') || localStorage.getItem('openai_api_key') || '';
-    
-    if (!CONFIG.HUME_API_KEY) {
-        const key = prompt('Enter your Hume API Key:');
-        if (key) {
-            CONFIG.HUME_API_KEY = key;
-            localStorage.setItem('hume_api_key', key);
-        }
-    }
-    
-    if (!CONFIG.OPENAI_API_KEY) {
-        const key = prompt('Enter OpenAI API Key (optional, for vision):');
-        if (key) {
-            CONFIG.OPENAI_API_KEY = key;
-            localStorage.setItem('openai_api_key', key);
-        }
-    }
 };
 
 function updateStatus(status, text) {
     statusEl.className = `status-indicator ${status}`;
     statusEl.textContent = text;
-    
-    if (status === 'speaking') {
-        avatarContainer.classList.add('speaking');
-    } else {
-        avatarContainer.classList.remove('speaking');
-    }
+    avatarContainer.classList.toggle('speaking', status === 'speaking');
 }
 
 function addMessage(role, text, emotions = null) {
@@ -73,7 +55,7 @@ function addMessage(role, text, emotions = null) {
     div.appendChild(label);
     div.appendChild(content);
     
-    if (emotions && Object.keys(emotions).length > 0) {
+    if (emotions) {
         const emotionsDiv = document.createElement('div');
         emotionsDiv.className = 'emotions';
         const sorted = Object.entries(emotions)
@@ -88,124 +70,207 @@ function addMessage(role, text, emotions = null) {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-async function startChat() {
-    if (!CONFIG.HUME_API_KEY) {
-        alert('Please provide a Hume API key');
-        return;
+async function getAccessToken() {
+    // Fetch access token from Hume API
+    const response = await fetch('https://api.hume.ai/oauth2-cc/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `grant_type=client_credentials&api_key=${CONFIG.HUME_API_KEY}`
+    });
+    
+    if (!response.ok) {
+        // Fall back to using API key directly (older method)
+        return null;
     }
     
+    const data = await response.json();
+    return data.access_token;
+}
+
+async function startChat() {
     try {
         updateStatus('connecting', 'Connecting to Claire...');
         
-        // Import Hume SDK
-        const Hume = await import('https://cdn.jsdelivr.net/npm/hume@0.9.3/+esm');
-        
-        const client = new Hume.HumeClient({
-            apiKey: CONFIG.HUME_API_KEY
+        // Request microphone access
+        const micStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                sampleRate: 16000,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true
+            }
         });
         
-        // Initialize audio player
-        player = new Hume.EVIWebAudioPlayer();
+        // Initialize audio context for playback
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
         
-        // Connect to EVI
-        socket = await client.empathicVoice.chat.connect({
-            configId: CONFIG.HUME_CONFIG_ID
-        });
+        // Connect to Hume EVI WebSocket
+        const wsUrl = `wss://api.hume.ai/v0/evi/chat?api_key=${CONFIG.HUME_API_KEY}&config_id=${CONFIG.HUME_CONFIG_ID}`;
+        socket = new WebSocket(wsUrl);
         
-        socket.on('open', async () => {
-            console.log('Socket opened');
+        socket.onopen = () => {
+            console.log('WebSocket connected');
             updateStatus('connected', 'Connected! Start talking...');
             
             startBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
             muteBtn.disabled = false;
             
-            // Initialize player
-            await player.init();
-            
             // Start audio capture
-            recorder = await startAudioCapture(socket, Hume);
-        });
+            startAudioCapture(micStream);
+        };
         
-        socket.on('message', async (msg) => {
-            console.log('Message:', msg.type, msg);
+        socket.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            console.log('Received:', msg.type, msg);
             
-            switch (msg.type) {
-                case 'chat_metadata':
-                    addMessage('claire', "Hey there! I'm Claire, your AI cooking companion. What's cooking?");
-                    break;
-                    
-                case 'user_message':
-                    const userText = msg.message?.content || '';
-                    const emotions = msg.models?.prosody?.scores || {};
-                    addMessage('user', userText, emotions);
-                    updateStatus('listening', 'Processing...');
-                    break;
-                    
-                case 'assistant_message':
-                    const claireText = msg.message?.content || '';
-                    addMessage('claire', claireText);
-                    break;
-                    
-                case 'audio_output':
-                    updateStatus('speaking', 'Claire is speaking...');
-                    await player.enqueue(msg);
-                    break;
-                    
-                case 'user_interruption':
-                    player.stop();
-                    updateStatus('listening', 'Listening...');
-                    break;
-                    
-                case 'assistant_end':
-                    updateStatus('connected', 'Your turn...');
-                    break;
-                    
-                case 'error':
-                    console.error('EVI error:', msg);
-                    updateStatus('disconnected', `Error: ${msg.message || 'Unknown'}`);
-                    break;
-            }
-        });
+            handleMessage(msg);
+        };
         
-        socket.on('error', (error) => {
-            console.error('Socket error:', error);
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
             updateStatus('disconnected', 'Connection error');
-        });
+        };
         
-        socket.on('close', () => {
-            console.log('Socket closed');
+        socket.onclose = (event) => {
+            console.log('WebSocket closed:', event.code, event.reason);
             updateStatus('disconnected', 'Disconnected');
             cleanup();
-        });
+        };
         
     } catch (error) {
-        console.error('Failed to start chat:', error);
+        console.error('Failed to start:', error);
         updateStatus('disconnected', `Error: ${error.message}`);
         cleanup();
     }
 }
 
-async function startAudioCapture(socket, Hume) {
-    const mimeTypeResult = Hume.getBrowserSupportedMimeType();
-    const mimeType = mimeTypeResult.success ? mimeTypeResult.mimeType : 'audio/webm';
+function handleMessage(msg) {
+    switch (msg.type) {
+        case 'chat_metadata':
+            addMessage('claire', "Hey there! I'm Claire, your AI cooking companion. What's cooking?");
+            break;
+            
+        case 'user_message':
+            const userText = msg.message?.content || '';
+            const emotions = msg.models?.prosody?.scores || null;
+            if (userText) {
+                addMessage('user', userText, emotions);
+            }
+            updateStatus('listening', 'Processing...');
+            break;
+            
+        case 'assistant_message':
+            const claireText = msg.message?.content || '';
+            if (claireText) {
+                addMessage('claire', claireText);
+            }
+            break;
+            
+        case 'audio_output':
+            updateStatus('speaking', 'Claire is speaking...');
+            playAudio(msg.data);
+            break;
+            
+        case 'user_interruption':
+            stopAudioPlayback();
+            updateStatus('listening', 'Listening...');
+            break;
+            
+        case 'assistant_end':
+            // Audio might still be playing
+            setTimeout(() => {
+                if (!isPlaying) {
+                    updateStatus('connected', 'Your turn...');
+                }
+            }, 500);
+            break;
+            
+        case 'error':
+            console.error('EVI error:', msg);
+            addMessage('claire', `Oops! Something went wrong. Let me try again.`);
+            break;
+    }
+}
+
+function startAudioCapture(stream) {
+    // Use MediaRecorder with webm/opus format
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : 'audio/webm';
     
-    const micAudioStream = await Hume.getAudioStream();
-    Hume.ensureSingleValidAudioTrack(micAudioStream);
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
     
-    const rec = new MediaRecorder(micAudioStream, { mimeType });
-    
-    rec.ondataavailable = async (e) => {
-        if (e.data.size > 0 && socket.readyState === WebSocket.OPEN && !isMuted) {
-            const data = await Hume.convertBlobToBase64(e.data);
-            socket.sendAudioInput({ data });
+    mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0 && socket?.readyState === WebSocket.OPEN && !isMuted) {
+            const base64 = await blobToBase64(event.data);
+            socket.send(JSON.stringify({
+                type: 'audio_input',
+                data: base64
+            }));
         }
     };
     
-    rec.onerror = (e) => console.error('MediaRecorder error:', e);
-    rec.start(80); // 80ms chunks
+    mediaRecorder.start(100); // Send chunks every 100ms
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function playAudio(base64Audio) {
+    try {
+        // Decode base64 to array buffer
+        const binaryString = atob(base64Audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        // Decode audio
+        const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+        
+        // Queue for playback
+        audioQueue.push(audioBuffer);
+        
+        if (!isPlaying) {
+            playNextInQueue();
+        }
+    } catch (error) {
+        console.error('Audio playback error:', error);
+    }
+}
+
+function playNextInQueue() {
+    if (audioQueue.length === 0) {
+        isPlaying = false;
+        updateStatus('connected', 'Your turn...');
+        return;
+    }
     
-    return rec;
+    isPlaying = true;
+    const audioBuffer = audioQueue.shift();
+    
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    source.onended = playNextInQueue;
+    source.start();
+}
+
+function stopAudioPlayback() {
+    audioQueue = [];
+    isPlaying = false;
 }
 
 function stopChat() {
@@ -218,21 +283,27 @@ function stopChat() {
 }
 
 function cleanup() {
-    if (recorder) {
-        recorder.stream.getTracks().forEach(t => t.stop());
-        recorder = null;
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
     }
-    if (player) {
-        player.dispose();
-        player = null;
+    mediaRecorder = null;
+    
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
     }
+    
     if (cameraStream) {
         cameraStream.getTracks().forEach(t => t.stop());
         cameraStream = null;
         cameraPreview.classList.remove('active');
     }
     
+    audioQueue = [];
+    isPlaying = false;
     socket = null;
+    
     startBtn.classList.remove('hidden');
     stopBtn.classList.add('hidden');
     muteBtn.disabled = true;
@@ -291,7 +362,6 @@ function handleImageUpload(event) {
 async function captureAndSend() {
     let imageData = currentImageData;
     
-    // Capture from camera if active
     if (cameraStream && cameraPreview.classList.contains('active')) {
         const canvas = document.createElement('canvas');
         canvas.width = cameraPreview.videoWidth;
@@ -308,39 +378,29 @@ async function captureAndSend() {
     try {
         updateStatus('connecting', 'Claire is looking at the image...');
         
-        const description = await analyzeImage(imageData);
+        let description = "I can see you've shared an image. Tell me what you'd like to know about it!";
+        
+        if (CONFIG.OPENAI_API_KEY) {
+            description = await analyzeImage(imageData);
+        }
         
         if (socket && socket.readyState === WebSocket.OPEN) {
-            // Send description as text input
-            socket.sendSessionSettings({
-                context: {
-                    type: 'editable',
-                    text: `[User is showing an image: ${description}]`
-                }
-            });
-            
-            // Also send as user input to trigger response
-            socket.sendUserInput(description);
+            // Send as text input
+            socket.send(JSON.stringify({
+                type: 'user_input',
+                text: `[Looking at an image] ${description}`
+            }));
             addMessage('user', `📷 Shared an image`);
         }
         
         updateStatus('connected', 'Image sent to Claire');
     } catch (error) {
-        console.error('Image analysis error:', error);
-        updateStatus('connected', 'Could not analyze image');
-        
-        // Still send a generic message
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.sendUserInput("I'm showing you something, can you see it?");
-        }
+        console.error('Image error:', error);
+        updateStatus('connected', 'Could not process image');
     }
 }
 
 async function analyzeImage(base64Image) {
-    if (!CONFIG.OPENAI_API_KEY) {
-        return "The user is showing me an image. I should ask them what they'd like to know about it.";
-    }
-    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -354,7 +414,7 @@ async function analyzeImage(base64Image) {
                 content: [
                     {
                         type: 'text',
-                        text: 'Describe this image briefly for a cooking AI assistant. What food, ingredients, dishes, or kitchen items do you see? Keep it to 1-2 sentences, be conversational.'
+                        text: 'Describe this image briefly for a cooking AI. What food, ingredients, or kitchen items do you see? 1-2 sentences, conversational.'
                     },
                     {
                         type: 'image_url',
@@ -367,7 +427,7 @@ async function analyzeImage(base64Image) {
     });
     
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || "I can see an image but couldn't identify the contents.";
+    return data.choices?.[0]?.message?.content || "I can see an image but couldn't identify what's in it.";
 }
 
 // Keyboard shortcuts
