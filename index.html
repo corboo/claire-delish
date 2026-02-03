@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claire Delish - AI Cooking Companion</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #FFF5F0 0%, #FFE8E0 100%);
@@ -20,224 +15,60 @@
             align-items: center;
             padding: 20px;
         }
-
-        .container {
-            max-width: 800px;
-            width: 100%;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            color: #FF6B35;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 1.1rem;
-        }
-
-        .avatar-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
+        .container { max-width: 800px; width: 100%; }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { font-size: 2.5rem; color: #FF6B35; margin-bottom: 5px; }
+        .subtitle { color: #666; font-size: 1.1rem; }
+        
+        .avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }
         .avatar-container {
-            position: relative;
-            width: 300px;
-            height: 300px;
-            border-radius: 50%;
-            overflow: hidden;
-            box-shadow: 0 10px 40px rgba(255, 107, 53, 0.3);
+            position: relative; width: 300px; height: 300px; border-radius: 50%;
+            overflow: hidden; box-shadow: 0 10px 40px rgba(255, 107, 53, 0.3);
             border: 4px solid #FF6B35;
         }
-
-        .avatar-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .avatar-container.speaking {
-            animation: pulse 1s ease-in-out infinite;
-        }
-
+        .avatar-container img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-container.speaking { animation: pulse 1s ease-in-out infinite; }
         @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 10px 40px rgba(255, 107, 53, 0.3); }
-            50% { transform: scale(1.02); box-shadow: 0 15px 50px rgba(255, 107, 53, 0.5); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
         }
-
+        
         .status-indicator {
-            margin-top: 15px;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 500;
+            margin-top: 15px; padding: 8px 20px; border-radius: 20px;
+            font-size: 0.9rem; font-weight: 500;
         }
-
         .status-indicator.disconnected { background: #f0f0f0; color: #666; }
         .status-indicator.connecting { background: #FFF3CD; color: #856404; }
         .status-indicator.connected { background: #D4EDDA; color: #155724; }
-        .status-indicator.listening { background: #CCE5FF; color: #004085; }
         .status-indicator.speaking { background: #FFE8E0; color: #FF6B35; }
-
-        .controls {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
+        .status-indicator.error { background: #F8D7DA; color: #721c24; }
+        
+        .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
         button {
-            padding: 15px 30px;
-            font-size: 1rem;
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 600;
+            padding: 15px 30px; font-size: 1rem; border: none; border-radius: 30px;
+            cursor: pointer; transition: all 0.2s; font-weight: 600;
         }
-
-        .btn-primary {
-            background: #FF6B35;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #E55A2B;
-            transform: translateY(-2px);
-        }
-
-        .btn-primary:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-secondary {
-            background: white;
-            color: #FF6B35;
-            border: 2px solid #FF6B35;
-        }
-
-        .btn-secondary:hover {
-            background: #FFF5F0;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-
-        .vision-section {
-            background: white;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 30px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-
-        .vision-section h3 {
-            color: #333;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .vision-controls {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .camera-preview {
-            width: 100%;
-            max-width: 400px;
-            border-radius: 10px;
-            margin-top: 15px;
-            display: none;
-        }
-
-        .camera-preview.active {
-            display: block;
-        }
-
-        .upload-preview {
-            max-width: 300px;
-            max-height: 200px;
-            border-radius: 10px;
-            margin-top: 15px;
-            display: none;
-        }
-
-        .upload-preview.active {
-            display: block;
-        }
-
-        #imageUpload {
-            display: none;
-        }
-
-        .transcript {
-            background: white;
-            border-radius: 20px;
-            padding: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-
-        .transcript h3 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .message {
-            padding: 10px 15px;
-            margin-bottom: 10px;
-            border-radius: 15px;
-            max-width: 80%;
-        }
-
-        .message.user {
-            background: #E8F4FD;
-            margin-left: auto;
-            text-align: right;
-        }
-
-        .message.claire {
-            background: #FFE8E0;
-        }
-
-        .message .label {
-            font-size: 0.75rem;
-            color: #888;
-            margin-bottom: 3px;
-        }
-
-        .emotions {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        footer {
-            margin-top: 30px;
-            text-align: center;
-            color: #888;
-            font-size: 0.85rem;
-        }
-
+        .btn-primary { background: #FF6B35; color: white; }
+        .btn-primary:hover { background: #E55A2B; transform: translateY(-2px); }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-secondary { background: white; color: #FF6B35; border: 2px solid #FF6B35; }
+        .btn-danger { background: #dc3545; color: white; }
         .hidden { display: none; }
+        
+        .transcript {
+            background: white; border-radius: 20px; padding: 20px;
+            max-height: 300px; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        .transcript h3 { color: #333; margin-bottom: 15px; }
+        .message { padding: 10px 15px; margin-bottom: 10px; border-radius: 15px; max-width: 80%; }
+        .message.user { background: #E8F4FD; margin-left: auto; text-align: right; }
+        .message.claire { background: #FFE8E0; }
+        .message.system { background: #f0f0f0; font-style: italic; font-size: 0.9rem; }
+        .message .label { font-size: 0.75rem; color: #888; margin-bottom: 3px; }
+        
+        .debug { background: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 8px; font-family: monospace; font-size: 0.8rem; }
+        
+        footer { margin-top: 30px; text-align: center; color: #888; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -249,28 +80,18 @@
 
         <div class="avatar-section">
             <div class="avatar-container" id="avatarContainer">
-                <img src="assets/chef-avatar.png" alt="Claire Delish" id="avatar">
+                <img src="assets/chef-avatar.png" alt="Claire Delish">
             </div>
             <div class="status-indicator disconnected" id="status">Click "Start Chat" to begin</div>
         </div>
 
         <div class="controls">
-            <button class="btn-primary" id="startBtn" onclick="startChat()">🎙️ Start Chat</button>
-            <button class="btn-danger hidden" id="stopBtn" onclick="stopChat()">⏹️ End Chat</button>
-            <button class="btn-secondary" id="muteBtn" onclick="toggleMute()" disabled>🔇 Mute</button>
+            <button class="btn-primary" id="startBtn">🎙️ Start Chat</button>
+            <button class="btn-danger hidden" id="stopBtn">⏹️ End Chat</button>
+            <button class="btn-secondary" id="muteBtn" disabled>🔇 Mute</button>
         </div>
 
-        <div class="vision-section">
-            <h3>👁️ Show Claire Something</h3>
-            <div class="vision-controls">
-                <button class="btn-secondary" onclick="toggleCamera()">📷 Camera</button>
-                <button class="btn-secondary" onclick="document.getElementById('imageUpload').click()">📁 Upload Photo</button>
-                <button class="btn-secondary" id="captureBtn" onclick="captureAndSend()" disabled>📸 Send to Claire</button>
-            </div>
-            <input type="file" id="imageUpload" accept="image/*" onchange="handleImageUpload(event)">
-            <video id="cameraPreview" class="camera-preview" autoplay playsinline></video>
-            <img id="uploadPreview" class="upload-preview">
-        </div>
+        <div id="debugBox" class="debug hidden"></div>
 
         <div class="transcript">
             <h3>💬 Conversation</h3>
@@ -282,6 +103,244 @@
         </footer>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        // Debug logging
+        const debugBox = document.getElementById('debugBox');
+        function debug(msg) {
+            console.log(msg);
+            debugBox.classList.remove('hidden');
+            debugBox.innerHTML += msg + '<br>';
+        }
+        
+        // Clear any old cached data
+        try {
+            localStorage.removeItem('hume_api_key');
+            localStorage.removeItem('openai_api_key');
+            debug('✓ Cleared old localStorage');
+        } catch(e) {
+            debug('⚠️ localStorage error: ' + e.message);
+        }
+
+        // Config
+        const CONFIG = {
+            HUME_API_KEY: 'Qpo16RO78hsfKE37KnJM7mlXBp1pnGaXVUQ0x36nNIbmgjUp',
+            HUME_CONFIG_ID: '5e4ab7a7-c3e8-4539-b2a3-c3cdfe69ecf4'
+        };
+
+        let socket = null;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let audioQueue = [];
+        let isPlaying = false;
+        let isMuted = false;
+
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const statusEl = document.getElementById('status');
+        const avatarContainer = document.getElementById('avatarContainer');
+        const messagesEl = document.getElementById('messages');
+
+        debug('✓ Script loaded successfully');
+        debug('✓ DOM elements found');
+
+        function updateStatus(status, text) {
+            statusEl.className = 'status-indicator ' + status;
+            statusEl.textContent = text;
+            avatarContainer.classList.toggle('speaking', status === 'speaking');
+        }
+
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            const label = document.createElement('div');
+            label.className = 'label';
+            label.textContent = role === 'user' ? 'You' : (role === 'system' ? 'System' : 'Claire');
+            const content = document.createElement('div');
+            content.textContent = text;
+            div.appendChild(label);
+            div.appendChild(content);
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        startBtn.onclick = async function() {
+            debug('Start button clicked');
+            
+            try {
+                updateStatus('connecting', 'Requesting microphone...');
+                debug('Requesting microphone access...');
+                
+                const micStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+                });
+                debug('✓ Microphone access granted');
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                debug('✓ AudioContext created');
+                
+                updateStatus('connecting', 'Connecting to Claire...');
+                const wsUrl = 'wss://api.hume.ai/v0/evi/chat?api_key=' + CONFIG.HUME_API_KEY + '&config_id=' + CONFIG.HUME_CONFIG_ID;
+                debug('Connecting to WebSocket...');
+                
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function() {
+                    debug('✓ WebSocket connected!');
+                    updateStatus('connected', 'Connected! Start talking...');
+                    startBtn.classList.add('hidden');
+                    stopBtn.classList.remove('hidden');
+                    muteBtn.disabled = false;
+                    startAudioCapture(micStream);
+                    addMessage('claire', "Hey there! I'm Claire, your AI cooking companion. What's cooking?");
+                };
+                
+                socket.onmessage = function(event) {
+                    const msg = JSON.parse(event.data);
+                    debug('Message: ' + msg.type);
+                    handleMessage(msg);
+                };
+                
+                socket.onerror = function(error) {
+                    debug('❌ WebSocket error: ' + JSON.stringify(error));
+                    updateStatus('error', 'Connection error');
+                };
+                
+                socket.onclose = function(event) {
+                    debug('WebSocket closed: ' + event.code + ' ' + event.reason);
+                    updateStatus('disconnected', 'Disconnected');
+                    cleanup();
+                };
+                
+            } catch (error) {
+                debug('❌ Error: ' + error.message);
+                updateStatus('error', 'Error: ' + error.message);
+                addMessage('system', 'Error: ' + error.message);
+            }
+        };
+
+        function handleMessage(msg) {
+            switch (msg.type) {
+                case 'chat_metadata':
+                    debug('Chat session started');
+                    break;
+                case 'user_message':
+                    if (msg.message && msg.message.content) {
+                        addMessage('user', msg.message.content);
+                    }
+                    break;
+                case 'assistant_message':
+                    if (msg.message && msg.message.content) {
+                        addMessage('claire', msg.message.content);
+                    }
+                    break;
+                case 'audio_output':
+                    updateStatus('speaking', 'Claire is speaking...');
+                    playAudio(msg.data);
+                    break;
+                case 'user_interruption':
+                    stopAudioPlayback();
+                    break;
+                case 'assistant_end':
+                    setTimeout(function() {
+                        if (!isPlaying) updateStatus('connected', 'Your turn...');
+                    }, 500);
+                    break;
+                case 'error':
+                    debug('❌ EVI Error: ' + JSON.stringify(msg));
+                    addMessage('system', 'Error from Claire: ' + (msg.message || 'Unknown'));
+                    break;
+            }
+        }
+
+        function startAudioCapture(stream) {
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+                ? 'audio/webm;codecs=opus' : 'audio/webm';
+            debug('Using mimeType: ' + mimeType);
+            
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+            
+            mediaRecorder.ondataavailable = async function(event) {
+                if (event.data.size > 0 && socket && socket.readyState === WebSocket.OPEN && !isMuted) {
+                    const reader = new FileReader();
+                    reader.onloadend = function() {
+                        const base64 = reader.result.split(',')[1];
+                        socket.send(JSON.stringify({ type: 'audio_input', data: base64 }));
+                    };
+                    reader.readAsDataURL(event.data);
+                }
+            };
+            
+            mediaRecorder.start(100);
+            debug('✓ Audio capture started');
+        }
+
+        async function playAudio(base64Audio) {
+            try {
+                const binaryString = atob(base64Audio);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+                audioQueue.push(audioBuffer);
+                if (!isPlaying) playNextInQueue();
+            } catch (error) {
+                debug('Audio error: ' + error.message);
+            }
+        }
+
+        function playNextInQueue() {
+            if (audioQueue.length === 0) {
+                isPlaying = false;
+                updateStatus('connected', 'Your turn...');
+                return;
+            }
+            isPlaying = true;
+            const audioBuffer = audioQueue.shift();
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.onended = playNextInQueue;
+            source.start();
+        }
+
+        function stopAudioPlayback() {
+            audioQueue = [];
+            isPlaying = false;
+        }
+
+        stopBtn.onclick = function() {
+            if (socket) socket.close();
+            cleanup();
+            updateStatus('disconnected', 'Chat ended');
+            addMessage('claire', "Thanks for chatting! Come back anytime!");
+        };
+
+        function cleanup() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
+            }
+            mediaRecorder = null;
+            if (audioContext) { audioContext.close(); audioContext = null; }
+            audioQueue = [];
+            isPlaying = false;
+            socket = null;
+            startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            muteBtn.disabled = true;
+        }
+
+        muteBtn.onclick = function() {
+            isMuted = !isMuted;
+            muteBtn.textContent = isMuted ? '🔊 Unmute' : '🔇 Mute';
+            updateStatus(isMuted ? 'connected' : 'connected', isMuted ? 'Muted' : 'Listening...');
+        };
+
+        debug('✓ Event handlers attached');
+        debug('Ready! Click "Start Chat" to begin.');
+    </script>
 </body>
 </html>
