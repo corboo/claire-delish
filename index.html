@@ -49,16 +49,18 @@
         
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 15px;
-        }
-        @media (max-width: 900px) {
-            .main-content { grid-template-columns: 1fr 1fr; }
-            .user-camera-section { grid-column: span 2; }
         }
         @media (max-width: 600px) {
             .main-content { grid-template-columns: 1fr; }
-            .user-camera-section { grid-column: span 1; }
+        }
+        
+        .expression-panel {
+            grid-column: span 2;
+        }
+        @media (max-width: 600px) {
+            .expression-panel { grid-column: span 1; }
         }
         
         .panel {
@@ -133,31 +135,9 @@
         .avatar-status.thinking { color: #ffc107; }
         .avatar-status.listening { color: #28a745; }
         
-        .user-video-container {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 4/3;
-            background: #111;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        
-        .user-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-        
         .emotion-overlay {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-size: 0.75rem;
+            padding: 8px 0;
+            font-size: 0.85rem;
         }
         
         .emotion-bar {
@@ -184,18 +164,6 @@
             background: linear-gradient(90deg, #FF6B35, #ffc107);
             border-radius: 3px;
             transition: width 0.3s;
-        }
-        
-        .camera-controls {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .camera-controls button {
-            padding: 8px 14px;
-            font-size: 0.8rem;
         }
         
         .transcript {
@@ -269,34 +237,33 @@
                 <div class="transcript" id="messages"></div>
             </div>
 
-            <div class="panel user-camera-section">
+            <!-- Hidden video element for expression analysis (no preview shown) -->
+            <video id="userVideo" style="display:none;" autoplay playsinline muted></video>
+            
+            <!-- Compact expression status panel -->
+            <div class="panel expression-panel">
                 <h3>
-                    📸 Your Camera
+                    😊 Your Mood
                     <span class="status-badge" id="expressionStatus">
                         <span class="dot"></span>
                         <span id="expressionText">Camera off</span>
                     </span>
                 </h3>
-                <div class="user-video-container">
-                    <video id="userVideo" class="user-video" autoplay playsinline muted></video>
-                    <div class="emotion-overlay" id="emotionOverlay" style="display: none;">
-                        <div class="emotion-bar">
-                            <span class="emotion-name">Joy</span>
-                            <div class="emotion-meter"><div class="emotion-fill" id="joyBar" style="width: 0%"></div></div>
-                        </div>
-                        <div class="emotion-bar">
-                            <span class="emotion-name">Confusion</span>
-                            <div class="emotion-meter"><div class="emotion-fill" id="confusionBar" style="width: 0%"></div></div>
-                        </div>
-                        <div class="emotion-bar">
-                            <span class="emotion-name">Interest</span>
-                            <div class="emotion-meter"><div class="emotion-fill" id="interestBar" style="width: 0%"></div></div>
-                        </div>
+                <div id="emotionOverlay" style="display: none;">
+                    <div class="emotion-bar">
+                        <span class="emotion-name">Joy</span>
+                        <div class="emotion-meter"><div class="emotion-fill" id="joyBar" style="width: 0%"></div></div>
+                    </div>
+                    <div class="emotion-bar">
+                        <span class="emotion-name">Confusion</span>
+                        <div class="emotion-meter"><div class="emotion-fill" id="confusionBar" style="width: 0%"></div></div>
+                    </div>
+                    <div class="emotion-bar">
+                        <span class="emotion-name">Interest</span>
+                        <div class="emotion-meter"><div class="emotion-fill" id="interestBar" style="width: 0%"></div></div>
                     </div>
                 </div>
-                <div class="camera-controls">
-                    <button class="btn-secondary hidden" id="captureBtn">📸 Capture & Share</button>
-                </div>
+                <p id="cameraOffMsg" style="color: #666; font-size: 0.8rem; margin-top: 8px;">Enable camera for Claire to see your expressions</p>
             </div>
         </div>
 
@@ -334,7 +301,6 @@
         const endBtn = document.getElementById('endBtn');
         const muteBtn = document.getElementById('muteBtn');
         const cameraToggle = document.getElementById('cameraToggle');
-        const captureBtn = document.getElementById('captureBtn');
         const messagesEl = document.getElementById('messages');
         const avatarImg = document.getElementById('avatarImg');
         const avatarVideo = document.getElementById('avatarVideo');
@@ -727,13 +693,15 @@
 
         // ========== Camera Controls ==========
         cameraToggle.onclick = async () => {
+            const cameraOffMsg = document.getElementById('cameraOffMsg');
+            
             if (userCameraStream) {
                 userCameraStream.getTracks().forEach(t => t.stop());
                 userCameraStream = null;
                 userVideo.srcObject = null;
                 cameraToggle.textContent = '📷 Enable Camera';
                 cameraToggle.classList.remove('active');
-                captureBtn.classList.add('hidden');
+                cameraOffMsg.style.display = 'block';
                 stopExpressionAnalysis();
             } else {
                 try {
@@ -743,18 +711,12 @@
                     userVideo.srcObject = userCameraStream;
                     cameraToggle.textContent = '📷 Disable Camera';
                     cameraToggle.classList.add('active');
-                    captureBtn.classList.remove('hidden');
+                    cameraOffMsg.style.display = 'none';
                     startExpressionAnalysis();
                 } catch (e) {
                     addMessage('system', 'Could not access camera');
                 }
             }
-        };
-        
-        captureBtn.onclick = () => {
-            if (!userCameraStream) return;
-            addMessage('user', '[Shared a photo]');
-            addMessage('system', 'Photo captured!');
         };
 
         // ========== Main Controls ==========
@@ -800,7 +762,6 @@
             endBtn.classList.add('hidden');
             muteBtn.classList.add('hidden');
             cameraToggle.classList.add('hidden');
-            captureBtn.classList.add('hidden');
             
             avatarVideo.classList.remove('active');
             avatarImg.classList.remove('hidden-avatar');
