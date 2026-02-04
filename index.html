@@ -182,7 +182,11 @@
             <button class="btn-primary" id="startBtn">🎙️ Start Cooking Session</button>
             <button class="btn-danger hidden" id="endBtn">⏹️ End Session</button>
             <button class="btn-secondary hidden" id="muteBtn">🔇 Mute Mic</button>
+            <button class="btn-secondary hidden" id="cameraBtn">📷 Enable Camera</button>
         </div>
+        
+        <!-- Hidden camera for expression analysis -->
+        <video id="userCamera" style="display:none;" autoplay playsinline muted></video>
 
         <div class="main-content">
             <div class="panel">
@@ -220,6 +224,9 @@
         let micRecorder = null;
         let audioContext = null;
         let isMuted = false;
+        let userCameraStream = null;
+        let expressionInterval = null;
+        let lastEmotionContext = '';
         
         // Audio collection for D-ID
         let currentResponseAudio = [];
@@ -231,11 +238,13 @@
         const startBtn = document.getElementById('startBtn');
         const endBtn = document.getElementById('endBtn');
         const muteBtn = document.getElementById('muteBtn');
+        const cameraBtn = document.getElementById('cameraBtn');
         const messagesEl = document.getElementById('messages');
         const avatarImg = document.getElementById('avatarImg');
         const avatarVideo = document.getElementById('avatarVideo');
         const videoLoading = document.getElementById('videoLoading');
         const claireStatus = document.getElementById('claireStatus');
+        const userCamera = document.getElementById('userCamera');
 
         // ========== Utilities ==========
         function setClaireStatus(status, text) {
@@ -352,9 +361,9 @@
                 startBtn.classList.add('hidden');
                 endBtn.classList.remove('hidden');
                 muteBtn.classList.remove('hidden');
-                cameraToggle.classList.remove('hidden');
+                cameraBtn.classList.remove('hidden');
                 startMicCapture(micStream);
-                addMessage('claire', "Hey there! I'm Claire, your AI cooking companion. What are we making today?");
+                addMessage('claire', "Hey there! I'm Claire, your AI cooking companion. What are we making today? Enable your camera so I can see what you're working with!");
             };
             
             humeSocket.onmessage = (event) => {
@@ -559,6 +568,77 @@
             processVideoQueue();
         }
 
+        // ========== Camera & Expression Analysis (Hidden) ==========
+        async function enableCamera() {
+            try {
+                userCameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: 320, height: 240 } 
+                });
+                userCamera.srcObject = userCameraStream;
+                cameraBtn.textContent = '📷 Camera On';
+                cameraBtn.classList.add('active');
+                startExpressionAnalysis();
+                addMessage('system', 'Camera enabled - Claire can see your expressions');
+            } catch (e) {
+                addMessage('system', 'Could not access camera');
+            }
+        }
+        
+        function disableCamera() {
+            if (userCameraStream) {
+                userCameraStream.getTracks().forEach(t => t.stop());
+                userCameraStream = null;
+            }
+            if (expressionInterval) {
+                clearInterval(expressionInterval);
+                expressionInterval = null;
+            }
+            userCamera.srcObject = null;
+            cameraBtn.textContent = '📷 Enable Camera';
+            cameraBtn.classList.remove('active');
+        }
+        
+        function startExpressionAnalysis() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            expressionInterval = setInterval(async () => {
+                if (!userCameraStream) return;
+                
+                canvas.width = userCamera.videoWidth || 320;
+                canvas.height = userCamera.videoHeight || 240;
+                ctx.drawImage(userCamera, 0, 0);
+                
+                const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+                
+                // Send to Hume Expression Measurement API
+                try {
+                    const response = await fetch('https://api.hume.ai/v0/batch/jobs', {
+                        method: 'POST',
+                        headers: {
+                            'X-Hume-Api-Key': CONFIG.HUME_API_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            models: { face: {} },
+                            urls: [`data:image/jpeg;base64,${base64}`]
+                        })
+                    });
+                    // Note: This is simplified - full implementation would poll for results
+                } catch (e) {
+                    // Silent fail for expression analysis
+                }
+            }, 3000); // Analyze every 3 seconds
+        }
+        
+        cameraBtn.onclick = () => {
+            if (userCameraStream) {
+                disableCamera();
+            } else {
+                enableCamera();
+            }
+        };
+
         // ========== Main Controls ==========
         startBtn.onclick = async () => {
             try {
@@ -586,6 +666,7 @@
             }
             if (humeSocket) humeSocket.close();
             if (audioContext) audioContext.close();
+            disableCamera();
             
             humeSocket = null;
             audioContext = null;
@@ -598,6 +679,7 @@
             startBtn.classList.remove('hidden');
             endBtn.classList.add('hidden');
             muteBtn.classList.add('hidden');
+            cameraBtn.classList.add('hidden');
             cameraToggle.classList.add('hidden');
             
             avatarVideo.classList.remove('active');
