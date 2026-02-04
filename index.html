@@ -390,9 +390,8 @@
                 offset += chunk.length;
             }
             
-            // Create WAV header - Hume EVI uses 24kHz, 16-bit, mono PCM
-            // But the data might be at 48kHz - let's try that
-            const wavHeader = createWavHeader(combined.length, 48000, 1, 16);
+            // Create WAV header - trying 44.1kHz
+            const wavHeader = createWavHeader(combined.length, 44100, 1, 16);
             
             // Combine header and data
             const wav = new Uint8Array(wavHeader.length + combined.length);
