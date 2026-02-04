@@ -189,7 +189,7 @@
                 <h3>👩‍🍳 Claire</h3>
                 <div class="avatar-container">
                     <img id="avatarImg" class="avatar-img" src="assets/chef-avatar.png" alt="Claire">
-                    <video id="avatarVideo" class="avatar-video" autoplay playsinline></video>
+                    <video id="avatarVideo" class="avatar-video" autoplay playsinline muted></video>
                     <div class="video-loading" id="videoLoading">🍳 Still cooking... almost done!</div>
                 </div>
                 <div class="avatar-status" id="claireStatus">Ready to cook!</div>
@@ -389,7 +389,8 @@
                     break;
                     
                 case 'audio_output':
-                    // Collect audio chunks instead of playing immediately
+                    // Play audio immediately AND collect for D-ID
+                    playAudioChunk(msg.data);
                     if (isCollectingAudio) {
                         currentResponseAudio.push(msg.data);
                     }
@@ -407,6 +408,29 @@
                         processVideoQueue();
                     }
                     break;
+            }
+        }
+        
+        // Play audio chunk immediately
+        function playAudioChunk(base64Audio) {
+            try {
+                const binaryString = atob(base64Audio);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                audioContext.decodeAudioData(bytes.buffer.slice(0), (audioBuffer) => {
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(audioContext.destination);
+                    source.start();
+                    setClaireStatus('speaking', '🗣️ Speaking...');
+                }, (err) => {
+                    console.log('Audio decode error:', err);
+                });
+            } catch (e) {
+                console.error('Audio play error:', e);
             }
         }
         
