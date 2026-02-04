@@ -51,16 +51,11 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
+            max-width: 800px;
+            margin: 0 auto;
         }
         @media (max-width: 600px) {
             .main-content { grid-template-columns: 1fr; }
-        }
-        
-        .expression-panel {
-            grid-column: span 2;
-        }
-        @media (max-width: 600px) {
-            .expression-panel { grid-column: span 1; }
         }
         
         .panel {
@@ -135,37 +130,6 @@
         .avatar-status.thinking { color: #ffc107; }
         .avatar-status.listening { color: #28a745; }
         
-        .emotion-overlay {
-            padding: 8px 0;
-            font-size: 0.85rem;
-        }
-        
-        .emotion-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-        
-        .emotion-bar:last-child { margin-bottom: 0; }
-        
-        .emotion-name { width: 70px; color: #aaa; }
-        
-        .emotion-meter {
-            flex: 1;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        
-        .emotion-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #FF6B35, #ffc107);
-            border-radius: 3px;
-            transition: width 0.3s;
-        }
-        
         .transcript {
             max-height: 350px;
             overflow-y: auto;
@@ -218,7 +182,7 @@
             <button class="btn-primary" id="startBtn">🎙️ Start Cooking Session</button>
             <button class="btn-danger hidden" id="endBtn">⏹️ End Session</button>
             <button class="btn-secondary hidden" id="muteBtn">🔇 Mute Mic</button>
-            <button class="btn-secondary hidden" id="cameraToggle">📷 Enable Camera</button>
+            <!-- Camera toggle removed -->
         </div>
 
         <div class="main-content">
@@ -227,7 +191,7 @@
                 <div class="avatar-container">
                     <img id="avatarImg" class="avatar-img" src="assets/chef-avatar.png" alt="Claire">
                     <video id="avatarVideo" class="avatar-video" autoplay playsinline></video>
-                    <div class="video-loading" id="videoLoading">🎬 Generating lip-sync...</div>
+                    <div class="video-loading" id="videoLoading">🍳 Still cooking... almost done!</div>
                 </div>
                 <div class="avatar-status" id="claireStatus">Ready to cook!</div>
             </div>
@@ -237,34 +201,9 @@
                 <div class="transcript" id="messages"></div>
             </div>
 
-            <!-- Hidden video element for expression analysis (no preview shown) -->
+            <!-- Hidden video element for expression analysis -->
             <video id="userVideo" style="display:none;" autoplay playsinline muted></video>
-            
-            <!-- Compact expression status panel -->
-            <div class="panel expression-panel">
-                <h3>
-                    😊 Your Mood
-                    <span class="status-badge" id="expressionStatus">
-                        <span class="dot"></span>
-                        <span id="expressionText">Camera off</span>
-                    </span>
-                </h3>
-                <div id="emotionOverlay" style="display: none;">
-                    <div class="emotion-bar">
-                        <span class="emotion-name">Joy</span>
-                        <div class="emotion-meter"><div class="emotion-fill" id="joyBar" style="width: 0%"></div></div>
-                    </div>
-                    <div class="emotion-bar">
-                        <span class="emotion-name">Confusion</span>
-                        <div class="emotion-meter"><div class="emotion-fill" id="confusionBar" style="width: 0%"></div></div>
-                    </div>
-                    <div class="emotion-bar">
-                        <span class="emotion-name">Interest</span>
-                        <div class="emotion-meter"><div class="emotion-fill" id="interestBar" style="width: 0%"></div></div>
-                    </div>
-                </div>
-                <p id="cameraOffMsg" style="color: #666; font-size: 0.8rem; margin-top: 8px;">Enable camera for Claire to see your expressions</p>
-            </div>
+            <div id="emotionOverlay" style="display:none;"></div>
         </div>
 
         <footer>
