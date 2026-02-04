@@ -579,9 +579,9 @@
                         avatarImg.classList.add('hidden-avatar');
                         videoLoading.classList.remove('active');
                         
+                        // Keep video visible on last frame (don't switch back to still)
                         avatarVideo.onended = () => {
-                            avatarVideo.classList.remove('active');
-                            avatarImg.classList.remove('hidden-avatar');
+                            // Just pause on last frame - don't hide
                         };
                         
                         avatarVideo.play();
