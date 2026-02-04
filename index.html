@@ -182,7 +182,6 @@
             <button class="btn-primary" id="startBtn">🎙️ Start Cooking Session</button>
             <button class="btn-danger hidden" id="endBtn">⏹️ End Session</button>
             <button class="btn-secondary hidden" id="muteBtn">🔇 Mute Mic</button>
-            <!-- Camera toggle removed -->
         </div>
 
         <div class="main-content">
@@ -201,9 +200,6 @@
                 <div class="transcript" id="messages"></div>
             </div>
 
-            <!-- Hidden video element for expression analysis -->
-            <video id="userVideo" style="display:none;" autoplay playsinline muted></video>
-            <div id="emotionOverlay" style="display:none;"></div>
         </div>
 
         <footer>
@@ -221,16 +217,12 @@
 
         // ========== State ==========
         let humeSocket = null;
-        let humeExpressionSocket = null;
         let micRecorder = null;
         let audioContext = null;
         let isMuted = false;
-        let userCameraStream = null;
-        let lastEmotionContext = null;
-        let expressionInterval = null;
         
         // Audio collection for D-ID
-        let currentResponseAudio = [];  // Collect audio chunks for current response
+        let currentResponseAudio = [];
         let isCollectingAudio = false;
         let videoQueue = [];
         let isProcessingVideo = false;
@@ -239,16 +231,11 @@
         const startBtn = document.getElementById('startBtn');
         const endBtn = document.getElementById('endBtn');
         const muteBtn = document.getElementById('muteBtn');
-        const cameraToggle = document.getElementById('cameraToggle');
         const messagesEl = document.getElementById('messages');
         const avatarImg = document.getElementById('avatarImg');
         const avatarVideo = document.getElementById('avatarVideo');
         const videoLoading = document.getElementById('videoLoading');
         const claireStatus = document.getElementById('claireStatus');
-        const userVideo = document.getElementById('userVideo');
-        const emotionOverlay = document.getElementById('emotionOverlay');
-        const expressionStatus = document.getElementById('expressionStatus');
-        const expressionText = document.getElementById('expressionText');
 
         // ========== Utilities ==========
         function setClaireStatus(status, text) {
@@ -548,116 +535,6 @@
             processVideoQueue();
         }
 
-        // ========== Hume Expression Measurement ==========
-        async function startExpressionAnalysis() {
-            if (!userCameraStream) return;
-            
-            expressionStatus.classList.add('connected');
-            expressionText.textContent = 'Analyzing...';
-            emotionOverlay.style.display = 'block';
-            
-            const wsUrl = `wss://api.hume.ai/v0/stream/models?api_key=${CONFIG.HUME_API_KEY}`;
-            humeExpressionSocket = new WebSocket(wsUrl);
-            
-            humeExpressionSocket.onopen = () => {
-                expressionText.textContent = 'Connected';
-                startExpressionCapture();
-            };
-            
-            humeExpressionSocket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleExpressionResult(data);
-            };
-            
-            humeExpressionSocket.onerror = () => {
-                expressionText.textContent = 'Error';
-            };
-            
-            humeExpressionSocket.onclose = () => {
-                expressionStatus.classList.remove('connected');
-                expressionText.textContent = 'Disconnected';
-            };
-        }
-        
-        function startExpressionCapture() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            expressionInterval = setInterval(() => {
-                if (!userCameraStream || !humeExpressionSocket || humeExpressionSocket.readyState !== WebSocket.OPEN) return;
-                
-                canvas.width = userVideo.videoWidth || 320;
-                canvas.height = userVideo.videoHeight || 240;
-                ctx.drawImage(userVideo, 0, 0);
-                
-                const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-                
-                humeExpressionSocket.send(JSON.stringify({
-                    models: { face: {} },
-                    data: base64
-                }));
-            }, 2000);
-        }
-        
-        function handleExpressionResult(data) {
-            if (data.face?.predictions?.[0]?.emotions) {
-                const emotions = data.face.predictions[0].emotions;
-                const emotionMap = {};
-                emotions.forEach(e => emotionMap[e.name.toLowerCase()] = e.score);
-                
-                const joy = (emotionMap['joy'] || 0) + (emotionMap['amusement'] || 0);
-                const confusion = (emotionMap['confusion'] || 0) + (emotionMap['doubt'] || 0);
-                const interest = (emotionMap['interest'] || 0) + (emotionMap['concentration'] || 0);
-                
-                document.getElementById('joyBar').style.width = `${Math.min(joy * 100, 100)}%`;
-                document.getElementById('confusionBar').style.width = `${Math.min(confusion * 100, 100)}%`;
-                document.getElementById('interestBar').style.width = `${Math.min(interest * 100, 100)}%`;
-                
-                if (confusion > 0.4) lastEmotionContext = 'confused';
-                else if (joy > 0.5) lastEmotionContext = 'happy';
-                else if (interest > 0.4) lastEmotionContext = 'focused';
-                else lastEmotionContext = 'calm';
-                
-                expressionText.textContent = lastEmotionContext;
-            }
-        }
-        
-        function stopExpressionAnalysis() {
-            if (expressionInterval) clearInterval(expressionInterval);
-            if (humeExpressionSocket) humeExpressionSocket.close();
-            emotionOverlay.style.display = 'none';
-            expressionStatus.classList.remove('connected');
-            expressionText.textContent = 'Camera off';
-        }
-
-        // ========== Camera Controls ==========
-        cameraToggle.onclick = async () => {
-            const cameraOffMsg = document.getElementById('cameraOffMsg');
-            
-            if (userCameraStream) {
-                userCameraStream.getTracks().forEach(t => t.stop());
-                userCameraStream = null;
-                userVideo.srcObject = null;
-                cameraToggle.textContent = '📷 Enable Camera';
-                cameraToggle.classList.remove('active');
-                cameraOffMsg.style.display = 'block';
-                stopExpressionAnalysis();
-            } else {
-                try {
-                    userCameraStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'user', width: 320, height: 240 } 
-                    });
-                    userVideo.srcObject = userCameraStream;
-                    cameraToggle.textContent = '📷 Disable Camera';
-                    cameraToggle.classList.add('active');
-                    cameraOffMsg.style.display = 'none';
-                    startExpressionAnalysis();
-                } catch (e) {
-                    addMessage('system', 'Could not access camera');
-                }
-            }
-        };
-
         // ========== Main Controls ==========
         startBtn.onclick = async () => {
             try {
@@ -685,13 +562,10 @@
             }
             if (humeSocket) humeSocket.close();
             if (audioContext) audioContext.close();
-            if (userCameraStream) userCameraStream.getTracks().forEach(t => t.stop());
-            stopExpressionAnalysis();
             
             humeSocket = null;
             audioContext = null;
             micRecorder = null;
-            userCameraStream = null;
             videoQueue = [];
             currentResponseAudio = [];
             isProcessingVideo = false;
